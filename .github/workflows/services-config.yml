@@ -1,0 +1,17 @@
+services:
+  appointment:
+    directory: appointment_service
+    image: appointment-service
+    port: 8003
+  notification:
+    directory: notification_service
+    image: notification-service
+    port: 8004
+  patient:
+    directory: patient_service
+    image: patient-service
+    port: 8001
+  aggregator:
+    directory: aggregator_service
+    image: aggregator-service
+    is_cronjob: true

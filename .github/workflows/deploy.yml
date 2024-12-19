@@ -1,0 +1,98 @@
+name: Build and Deploy to GKE
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  PROJECT_ID: ${{ secrets.GKE_PROJECT }}
+  GKE_CLUSTER: meditrack-cluster
+  GKE_ZONE: us-central1
+  GITHUB_SHA: ${{ github.sha }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.set-matrix.outputs.services }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up service matrix
+        id: set-matrix
+        run: |
+          services=$(yq eval -o=json '.services' .github/workflows/services-config.yml)
+          echo "services=$services" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.prepare.outputs.services) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GKE_SA_KEY }}
+
+      - name: Configure Docker
+        run: gcloud --quiet auth configure-docker
+
+      - name: Configure kubectl
+        uses: google-github-actions/get-gke-credentials@v1
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
+
+      - name: Create Kubernetes Secrets
+        run: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: healthsync-secrets
+          type: Opaque
+          stringData:
+            mongo-url: ${{ secrets.MONGO_URL }}
+            redshift-host: ${{ secrets.REDSHIFT_HOST }}
+            redshift-user: ${{ secrets.REDSHIFT_USER }}
+            redshift-password: ${{ secrets.REDSHIFT_PASSWORD }}
+          EOF
+
+      - name: Build and Push Docker image
+        run: |
+          IMAGE_PATH="gcr.io/$PROJECT_ID/${{ matrix.service.image }}:$GITHUB_SHA"
+          
+          echo "Building service: ${{ matrix.service.directory }}"
+          docker build \
+            --tag "$IMAGE_PATH" \
+            --build-arg GITHUB_SHA="$GITHUB_SHA" \
+            --build-arg GITHUB_REF="$GITHUB_REF" \
+            services/${{ matrix.service.directory }}
+          
+          docker push "$IMAGE_PATH"
+
+      - name: Deploy to GKE
+        run: |
+          IMAGE_PATH="gcr.io/$PROJECT_ID/${{ matrix.service.image }}:$GITHUB_SHA"
+          
+          if [ "${{ matrix.service.is_cronjob }}" = "true" ]; then
+            # Deploy as CronJob
+            sed -i "s|gcr.io/$PROJECT_ID/${{ matrix.service.image }}:latest|$IMAGE_PATH|" \
+              kubernetes/${{ matrix.service.image }}/cronjob.yaml
+            kubectl apply -f kubernetes/${{ matrix.service.image }}/cronjob.yaml
+          else
+            # Deploy as regular service
+            sed -i "s|gcr.io/$PROJECT_ID/${{ matrix.service.image }}:latest|$IMAGE_PATH|" \
+              kubernetes/${{ matrix.service.image }}/deployment.yaml
+            kubectl apply -f kubernetes/${{ matrix.service.image }}/
+            kubectl rollout status deployment/${{ matrix.service.image }}
+          fi
