@@ -30,6 +30,7 @@ jobs:
             port: 8001
             image_name: patient-service
 
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -71,8 +72,8 @@ jobs:
         run: |
           echo "Deploying Green environment for service: ${{ matrix.service }}"
           sed -i "s|gcr.io/$PROJECT_ID/${{ matrix.image_name }}:latest|gcr.io/$PROJECT_ID/${{ matrix.image_name }}:$GITHUB_SHA|" \
-            kubernetes/${{ matrix.image_name }}/deployment-green.yaml
-          kubectl apply -f kubernetes/${{ matrix.image_name }}/deployment-green.yaml
+            kubernetes/blue-green/deployment-green.yaml
+          kubectl apply -f kubernetes/blue-green/deployment-green.yaml
 
       - name: Test Green Environment
         run: |

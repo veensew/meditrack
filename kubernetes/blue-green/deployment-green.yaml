@@ -1,12 +1,13 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: appointment-service
+  name: appointment-service-green
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: appointment-service
+      version: green
   template:
     metadata:
       labels:
