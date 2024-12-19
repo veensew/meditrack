@@ -1,4 +1,4 @@
-name: Build and Deploy to GKE
+name: Build and Deploy to GKE (Blue-Green)
 
 on:
   push:
@@ -60,42 +60,51 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           echo "Building and pushing image for service: ${{ matrix.service }}"
-          
-          # Build the Docker image
           docker build \
             --tag "gcr.io/$PROJECT_ID/${{ matrix.image_name }}:$GITHUB_SHA" \
             --build-arg GITHUB_SHA="$GITHUB_SHA" \
             --build-arg GITHUB_REF="$GITHUB_REF" \
             services/${{ matrix.service }}
-          
-          # Push the Docker image
           docker push "gcr.io/$PROJECT_ID/${{ matrix.image_name }}:$GITHUB_SHA"
 
-      - name: Deploy Service to GKE
+      - name: Deploy Green Environment
         run: |
-          echo "Deploying service: ${{ matrix.service }} to GKE"
-          
-          # Update deployment YAML with the specific image
+          echo "Deploying Green environment for service: ${{ matrix.service }}"
           sed -i "s|gcr.io/$PROJECT_ID/${{ matrix.image_name }}:latest|gcr.io/$PROJECT_ID/${{ matrix.image_name }}:$GITHUB_SHA|" \
-            kubernetes/${{ matrix.image_name }}/deployment.yaml
+            kubernetes/${{ matrix.image_name }}/deployment-green.yaml
+          kubectl apply -f kubernetes/${{ matrix.image_name }}/deployment-green.yaml
 
-          # Apply deployment and wait for rollout
-          kubectl apply -f kubernetes/${{ matrix.image_name }}/
-          kubectl rollout status deployment/${{ matrix.image_name }}
+      - name: Test Green Environment
+        run: |
+          echo "Testing Green environment for service: ${{ matrix.service }}"
+          curl -s http://34.41.192.165:8003/api/health || exit 1
+
+      - name: Switch Traffic to Green
+        run: |
+          echo "Switching traffic to Green environment for service: ${{ matrix.service }}"
+          kubectl patch service ${{ matrix.service }} \
+            -p '{"spec":{"selector":{"version":"green"}}}'
+
+      - name: Remove Blue Deployment
+        if: success()
+        run: |
+          echo "Removing Blue environment for service: ${{ matrix.service }}"
+          kubectl delete deployment ${{ matrix.image_name }}-blue
+
+      - name: Rollback to Blue
+        if: failure()
+        run: |
+          echo "Rolling back to Blue environment for service: ${{ matrix.service }}"
+          kubectl patch service ${{ matrix.service }} \
+            -p '{"spec":{"selector":{"version":"blue"}}}'
 
       - name: Deploy Aggregator CronJob
         run: |
           echo "Building and deploying aggregator service"
-
-          # Build and push the aggregator image
           docker build \
             -t "gcr.io/$PROJECT_ID/aggregator_service:$GITHUB_SHA" \
             services/aggregator_service
           docker push "gcr.io/$PROJECT_ID/aggregator_service:$GITHUB_SHA"
-
-          # Update CronJob YAML with the specific image
           sed -i "s|gcr.io/$PROJECT_ID/aggregator_service:latest|gcr.io/$PROJECT_ID/aggregator_service:$GITHUB_SHA|" \
             kubernetes/aggregator_service/cronjob.yaml
-
-          # Apply CronJob configuration
           kubectl apply -f kubernetes/aggregator_service/cronjob.yaml

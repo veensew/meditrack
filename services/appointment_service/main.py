@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask,jsonify
 from flask_restx import Api, Resource, fields
 from flask_cors import CORS
 from models import Doctor, Appointment
@@ -147,6 +147,21 @@ class AppointmentResource(Resource):
             return {"id": str(result.inserted_id)}, 201
         except Exception as e:
             return {"error": str(e)}, 400
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    try:
+        service_status = "healthy"
+
+        if service_status == "healthy":
+            return jsonify({"status": "healthy"}), 200
+        else:
+            return jsonify({"status": "unhealthy"}), 500
+
+    except Exception as e:
+        # If any error occurs, return unhealthy status
+        return jsonify({"status": "unhealthy", "error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8003, debug=True)
