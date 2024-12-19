@@ -9,3 +9,4 @@ pydantic[email]
 fastapi-utils
 typing-inspect
 httpx
+gunicorn
