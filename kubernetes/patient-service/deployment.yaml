@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: patient-service
-          image: gcr.io/${GKE_PROJECT}/patient-service:latest
+          image: gcr.io/meditrack-445205/patient-service:latest
           ports:
             - containerPort: 8001
           env:

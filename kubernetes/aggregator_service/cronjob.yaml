@@ -11,7 +11,7 @@ spec:
         spec:
           containers:
             - name: aggregator
-              image: gcr.io/${GKE_PROJECT}/aggregator_service:latest
+              image: gcr.io/meditrack-445205/aggregator_service:latest
               env:
                 - name: MONGO_URL
                   valueFrom:

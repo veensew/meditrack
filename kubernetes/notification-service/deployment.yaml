@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: notification-service
-          image: gcr.io/${GKE_PROJECT}/notification-service:latest
+          image: gcr.io/meditrack-445205/notification-service:latest
           ports:
             - containerPort: 8004
           env:

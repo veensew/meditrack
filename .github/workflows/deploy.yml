@@ -2,9 +2,9 @@ name: Build and Deploy to GKE
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   PROJECT_ID: ${{ secrets.GKE_PROJECT }}
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [ appointment_service, notification_service, patient_service ]
+        service: [appointment_service, notification_service, patient_service]
         include:
           - service: appointment_service
             port: 8003
@@ -55,11 +55,11 @@ jobs:
             --from-literal=redshift-host=${{ secrets.REDSHIFT_HOST }} \
             --from-literal=redshift-user=${{ secrets.REDSHIFT_USER }} \
             --from-literal=redshift-password=${{ secrets.REDSHIFT_PASSWORD }} \
-            --dry-run=client -o yaml | kubectl apply -f - 
+            --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Build and Push Docker image
+      - name: Build and Push Docker Image
         run: |
-          echo "Building service from: services/${{ matrix.service }}"
+          echo "Building and pushing image for service: ${{ matrix.service }}"
           
           # Build the Docker image
           docker build \
@@ -71,22 +71,31 @@ jobs:
           # Push the Docker image
           docker push "gcr.io/$PROJECT_ID/${{ matrix.image_name }}:$GITHUB_SHA"
 
-      - name: Deploy to GKE
+      - name: Deploy Service to GKE
         run: |
+          echo "Deploying service: ${{ matrix.service }} to GKE"
+          
+          # Update deployment YAML with the specific image
           sed -i "s|gcr.io/$PROJECT_ID/${{ matrix.image_name }}:latest|gcr.io/$PROJECT_ID/${{ matrix.image_name }}:$GITHUB_SHA|" \
             kubernetes/${{ matrix.image_name }}/deployment.yaml
-          
+
+          # Apply deployment and wait for rollout
           kubectl apply -f kubernetes/${{ matrix.image_name }}/
           kubectl rollout status deployment/${{ matrix.image_name }}
 
       - name: Deploy Aggregator CronJob
         run: |
-          # Build and push the aggregator image
-          docker build -t gcr.io/$PROJECT_ID/aggregator_service:$GITHUB_SHA services/aggregator_service
-          docker push gcr.io/$PROJECT_ID/aggregator_service:$GITHUB_SHA
+          echo "Building and deploying aggregator service"
 
+          # Build and push the aggregator image
+          docker build \
+            -t "gcr.io/$PROJECT_ID/aggregator_service:$GITHUB_SHA" \
+            services/aggregator_service
+          docker push "gcr.io/$PROJECT_ID/aggregator_service:$GITHUB_SHA"
+
+          # Update CronJob YAML with the specific image
           sed -i "s|gcr.io/$PROJECT_ID/aggregator_service:latest|gcr.io/$PROJECT_ID/aggregator_service:$GITHUB_SHA|" \
             kubernetes/aggregator_service/cronjob.yaml
 
-          # Apply CronJob to GKE
+          # Apply CronJob configuration
           kubectl apply -f kubernetes/aggregator_service/cronjob.yaml

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: appointment-service
-          image: gcr.io/${GKE_PROJECT}/appointment-service:latest
+          image: gcr.io/meditrack-445205/appointment-service:latest
           ports:
             - containerPort: 8003
           env:
