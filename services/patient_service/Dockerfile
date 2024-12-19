@@ -9,4 +9,4 @@ COPY . .
 
 EXPOSE 8001
 
-CMD ["gunicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8001", "main:app"]
