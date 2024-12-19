@@ -8,7 +8,8 @@ from typing import List
 app = Flask(__name__)
 api = Api(app, version='1.0', title='Patient Service API',
           description='A simple Patient Service API',
-          doc='/swagger')
+          doc='/',
+          prefix='/api')
 
 # Define namespaces
 ns = api.namespace('patients', description='Patient operations')

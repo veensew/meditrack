@@ -48,7 +48,7 @@ class DataAggregatorService:
             doctor_appointments = self.aggregators.aggregate_doctor_appointments()
             self.save_to_redshift(
                 doctor_appointments,
-                "doctor_appointments_agg",
+                "doctor_appointments",
                 ["doctor_id", "doctor_name", "specialty", "appointment_count", "aggregation_date"]
             )
 
@@ -56,7 +56,7 @@ class DataAggregatorService:
             appointment_freq = self.aggregators.aggregate_appointment_frequency()
             self.save_to_redshift(
                 appointment_freq,
-                "appointment_frequency_agg",
+                "appointment_frequency",
                 ["date", "appointment_count", "aggregation_date"]
             )
 
@@ -64,7 +64,7 @@ class DataAggregatorService:
             symptoms_specialty = self.aggregators.aggregate_symptoms_by_specialty()
             self.save_to_redshift(
                 symptoms_specialty,
-                "symptoms_by_specialty_agg",
+                "symptoms_by_specialty",
                 ["specialty", "symptom", "occurrence_count", "aggregation_date"]
             )
 
