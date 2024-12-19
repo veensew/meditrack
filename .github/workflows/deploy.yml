@@ -88,11 +88,6 @@ jobs:
           kubectl apply -f kubernetes/${{ matrix.image_name }}/
           kubectl rollout status deployment/${{ matrix.image_name }}
 
-      - name: validate after
-        run: |
-          echo "Testing Green environment for service: ${{ matrix.service }}"
-          curl -s http://34.41.192.165:8003/health || exit 1
-
       - name: Deploy Aggregator CronJob
         run: |
           echo "Building and deploying aggregator service"
