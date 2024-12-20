@@ -60,18 +60,18 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           echo "Building and pushing image for service: ${{ matrix.service }}"
-          
+
           # Build the Docker image
           docker build \
             --tag "gcr.io/$PROJECT_ID/${{ matrix.image_name }}:$GITHUB_SHA" \
             --build-arg GITHUB_SHA="$GITHUB_SHA" \
             --build-arg GITHUB_REF="$GITHUB_REF" \
             services/${{ matrix.service }}
-          
+
           # Push the Docker image
           docker push "gcr.io/$PROJECT_ID/${{ matrix.image_name }}:$GITHUB_SHA"
 
-      - name: validate before
+      - name: Validate before
         run: |
           echo "Testing Green environment for service: ${{ matrix.service }}"
           curl -s http://34.41.192.165:8003/health || exit 1
@@ -79,7 +79,7 @@ jobs:
       - name: Deploy Service to GKE
         run: |
           echo "Deploying service: ${{ matrix.service }} to GKE"
-          
+
           # Update deployment YAML with the specific image
           sed -i "s|gcr.io/$PROJECT_ID/${{ matrix.image_name }}:latest|gcr.io/$PROJECT_ID/${{ matrix.image_name }}:$GITHUB_SHA|" \
             kubernetes/${{ matrix.image_name }}/deployment.yaml
